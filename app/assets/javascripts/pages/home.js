@@ -47,17 +47,17 @@ $(function() {
           result += '<thead>' + renderTableRow(row, true) + '</thead><tbody>';
         }
         else if (index === data.length - 1) {
-          result += renderTableRow(row) + '</tbody>';
+          result += renderTableRow(row, false) + '</tbody>';
         }
         else {
-          result += renderTableRow(row);
+          result += renderTableRow(row, false);
         }
       });
 
       return result;
     }
 
-    function renderTableRow(row, onHeader = false) {
+    function renderTableRow(row, onHeader) {
       var result = '';
       var tag = onHeader ? 'th' : 'td';
 
@@ -70,7 +70,7 @@ $(function() {
       return result;
     }
 
-    function transformTableItem(item, onHeader = false) {
+    function transformTableItem(item, onHeader) {
       return onHeader ? item.replace('-', '_') : item;
     }
   }
