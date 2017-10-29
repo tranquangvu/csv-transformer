@@ -19,11 +19,18 @@ function initDatePicker() {
   $('.date-picker').datepicker({
     autoclose: true,
     todayHighlight: true,
-    format: 'yyyy-mm-dd'
+    format: 'dd-M-yy'
   });
 }
 
 function initParsley() {
+  window.ParsleyValidator
+        .addValidator('extension', function (value, requirement) {
+          var fileExtension = value.split('.').pop();
+          return fileExtension === requirement;
+        }, 32)
+        .addMessage('en', 'extension', 'The extension doesn\'t match the required');
+
   $('form.with-parsley').parsley({
     errorsContainer: function (el) {
       return el.$element.closest(".form-group");

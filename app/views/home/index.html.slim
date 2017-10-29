@@ -2,10 +2,10 @@
   = simple_form_for :transformer, url: transform_path, method: :post, html: { class: 'with-parsley' } do |f|
     .row
       .col-xs-12.col-md-4
-        = f.input :file, as: :file, required: true, input_html: { class: 'form-control' }
+        = f.input :file, as: :file, required: true, input_html: { class: 'form-control', data: { 'parsley-extension' => 'csv', disable_with: false } }
       .col-xs-12.col-md-4
         = f.input :date, required: true, input_html: { class: 'date-picker form-control' }
       .col-xs-12.col-md-4
-        = f.submit class: 'btn btn-primary', style: 'margin-top: 25px;'
-  #file-detail
-  table#file-content-preview.table.table-striped.nowrap.data-table style="width: 100%;"
+        = f.submit 'Export & Download', class: 'btn btn-main'
+  #file-detail.hide
+  table#file-content-preview.table.table-striped.nowrap.data-table.hide

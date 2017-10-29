@@ -5,9 +5,10 @@ html
     = stylesheet_link_tag    'application', media: 'all', 'data-turbolinks-track' => true
     = javascript_include_tag 'application', 'data-turbolinks-track' => true
     = csrf_meta_tags
-  body
+
+  body class="#{params[:controller].gsub('/', ' ')} #{params[:action]}"
     = render 'shared/header'
-    .container
-      = render 'shared/flash'
+    = render 'shared/flash'
+    .main-content
       = yield
     = render 'shared/footer'

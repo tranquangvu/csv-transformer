@@ -14,11 +14,11 @@ $(function() {
 
     function showFileDetail(file) {
       var output = '';
-          output += '<span style="font-weight:bold;">' + escape(file.name) + '</span><br />\n';
+          output += ' - FileName: ' + escape(file.name) + '<br />\n';
           output += ' - FileType: ' + (file.type || 'n/a') + '<br />\n';
           output += ' - FileSize: ' + file.size + ' bytes<br />\n';
           output += ' - LastModified: ' + (file.lastModifiedDate ? file.lastModifiedDate.toLocaleDateString() : 'n/a') + '<br />\n';
-      $('#file-detail').html(output);
+      $('#file-detail').html(output).removeClass('hide');
     }
 
     function showContentPreview(file) {
@@ -28,20 +28,15 @@ $(function() {
       reader.onload = function(event){
         var csv   = event.target.result;
         var data  = $.csv.toArrays(csv);
-
         var html  = renderTable(data);
 
-        $('#file-content-preview').html(html);
+        $('#file-content-preview').html(html).removeClass('hide');
         initDatableFor($('#file-content-preview'));
       };
 
       reader.onerror = function() {
         alert('Unable to read ' + file.fileName);
       };
-    }
-
-    function renderFileDetail() {
-
     }
 
     function renderTable(data) {
@@ -76,7 +71,7 @@ $(function() {
     }
 
     function transformTableItem(item, onHeader = false) {
-      return onHeader ? item : item.replace('-', '_');
+      return onHeader ? item.replace('-', '_') : item;
     }
   }
 });
