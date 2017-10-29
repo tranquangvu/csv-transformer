@@ -17,7 +17,7 @@ class CsvTransformService
     end
 
     # filter by date
-    @filtered_rows = @data_rows.select { |data_row| Date.parse(data_row[:delivery_date]) == Date.parse(@date) }
+    @filtered_rows = @data_rows.select { |data_row| Date.parse(data_row[:delivery_date]) == Date.parse(@date) rescue false }
 
     # export csv
     CSV.generate(headers: true, encoding: 'ISO-8859-1') do |csv|
