@@ -30,3 +30,9 @@ group :development do
 end
 
 gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
+
+gem 'devise', '~> 4.3'
+gem 'jquery-rails'
+gem 'bootstrap-sass', '~> 3.3', '>= 3.3.7'
+gem 'slim'
+gem 'simple_form'
