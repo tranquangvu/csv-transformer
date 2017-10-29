@@ -39,7 +39,7 @@ function initParsley() {
 }
 
 function initDatableFor($target) {
-  $target.DataTable({
+  return $target.DataTable({
     scrollX: true,
     pageLength: 25,
     lengthMenu: [[25, 50, 100, 200, 500], [25, 50, 100, 200, 500]],

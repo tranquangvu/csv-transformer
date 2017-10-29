@@ -1,5 +1,6 @@
 $(function() {
   var $homeIndex = $('#home-index-container');
+  var dataTable  = null;
 
   if ($homeIndex.length) {
     $('#transformer_file').change(handleFileSelect);
@@ -9,7 +10,9 @@ $(function() {
       var file  = files[0];
 
       showFileDetail(file);
-      showContentPreview(file);
+      if (file.type === 'text/csv') {
+        showContentPreview(file);
+      }
     }
 
     function showFileDetail(file) {
@@ -30,8 +33,11 @@ $(function() {
         var data  = $.csv.toArrays(csv);
         var html  = renderTable(data);
 
+        if (dataTable) {
+          dataTable.destroy();
+        }
         $('#file-content-preview').html(html).removeClass('hide');
-        initDatableFor($('#file-content-preview'));
+        dataTable = initDatableFor($('#file-content-preview'));
       };
 
       reader.onerror = function() {
