@@ -1,0 +1,8 @@
+= simple_form_for :transformer, url: transform_path, method: :post, html: { class: 'with-parsley' } do |f|
+  .row
+    .col-xs-12.col-md-4
+      = f.input :file, as: :file, required: true, input_html: { class: 'form-control', data: { 'parsley-extension' => 'csv', disable_with: false } }
+    .col-xs-12.col-md-4
+      = f.input :date, required: true, input_html: { class: 'date-picker form-control' }
+    .col-xs-12.col-md-4
+      = f.submit 'Export CSV', class: 'btn btn-default'

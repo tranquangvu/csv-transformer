@@ -43,7 +43,6 @@ body {
   }
 }
 
-
 .form-control {
   border-radius: 0;
   outline: none !important;
@@ -58,13 +57,44 @@ label {
   color: $grey;
 }
 
-.btn-main {
-  background: $red;
-  border-color: $red;
+.btn-default {
+  width: 100%;
+  display: block;
+  padding: 12px 10px;
+  outline: none !important;
   color: $white !important;
+  background: $red !important;
+  border-color: $red !important;
+  border-radius: 0;
+  transition: all ease .2s;
+
+  &:hover {
+    box-shadow: 2px 4px 8px rgba(0, 0, 0, .2);
+  }
 }
 
 .parsley-errors-list li {
   color: $red-darker;
   margin-top: 5px;
+}
+
+.pagination {
+  & > li {
+    & > a, & > a:hover, & > span {
+      color: $red;
+    }
+
+    &:first-child {
+      & > a, & > span {
+        color: $red;
+      }
+    }
+  }
+
+  & > .active {
+    & > a, & > a:hover, a:focus, span, span:hover, span:focus {
+      background-color: $red;
+      border-color: $red;
+    }
+  }
 }

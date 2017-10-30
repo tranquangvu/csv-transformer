@@ -1,7 +1,7 @@
 require 'csv';
 
 class CsvTransformService
-  attr_accessor :file_path, :data_rows, :filtered_rows, :results
+  attr_accessor :file_path, :imported_rows, :exported_rows, :results
 
   def initialize(file_path, date)
     @file_path = file_path
@@ -10,35 +10,25 @@ class CsvTransformService
 
   def result
     # read data rows
-    @data_rows = []
+    @imported_rows = []
     CSV.foreach(file_path, headers: origin_csv_headers, encoding: 'ISO-8859-1').with_index do |data_row, index|
       next if index == 0
-      @data_rows << data_row
+      @imported_rows << data_row
     end
 
-    # filter by date
-    @filtered_rows = @data_rows.select { |data_row| Date.parse(data_row[:delivery_date]) == Date.parse(@date) rescue false }
+    # filter data by date
+    @exported_rows = @imported_rows.select do |data_row|
+      Date.parse(data_row[:delivery_date]) == Date.parse(@date) rescue false
+    end
 
     # export csv
     CSV.generate(headers: true, encoding: 'ISO-8859-1') do |csv|
       csv << exported_csv_headers
 
-      @filtered_rows.each_with_index do |row, index|
-        base_address = "#{row[:shipping_address_1]}, #{row[:shipping_city]}, #{row[:shipping_state]} #{row[:shipping_postcode]}"
-        csv << [
-          "#{index + 1}_#{row[:billing_first_name]}_#{row[:billing_last_name]}",
-          nil,
-          nil,
-          formatted_address(base_address),
-          convert_12_to_24_hr(row[:delivery_time].split('-').first.delete(' ')),
-          convert_12_to_24_hr(row[:delivery_time].split('-').last.delete(' ')),
-          10,
-          row[:line_items].split('|')[1..-1].join("\n"),
-          nil,
-          1,
-          nil,
-          row[:billing_phone]
-        ]
+      @exported_rows.each_with_index do |row, index|
+        csv << [build_exported_csv_id(row, index), nil, nil,
+          build_exported_csv_address(row), build_exported_csv_from(row), build_exported_csv_to(row),
+            10, build_exported_csv_notes(row), nil, 1, nil, row[:billing_phone]]
       end
     end
   end
@@ -96,14 +86,28 @@ class CsvTransformService
     ]
   end
 
-  def convert_12_to_24_hr(string_time)
-    Time.strptime(string_time, "%I%P").strftime("%H:%M")
+  def build_exported_csv_id(row, index)
+    "#{index + 1}_#{row[:billing_first_name]}_#{row[:billing_last_name]}"
   end
 
-  def formatted_address(base_address)
-    geo_result = Geocoder.search(base_address).first
+  def build_exported_csv_address(row)
+    "#{row[:shipping_address_1]}, #{row[:shipping_city]}, #{row[:shipping_state]} #{row[:shipping_postcode]}, USA" # country is fixed to USA
+  end
 
-    return unless geo_result
-    geo_result.formatted_address
+  def build_exported_csv_from(row)
+    convert_12_to_24_hr(row[:delivery_time].split('-').first.delete(' '))
+  end
+
+  def build_exported_csv_to(row)
+    convert_12_to_24_hr(row[:delivery_time].split('-').last.delete(' '))
+  end
+
+  def build_exported_csv_notes(row)
+    row[:line_items].split('|')[1..-1].join("\n")
+  end
+
+  # helper methods
+  def convert_12_to_24_hr(string_time)
+    Time.strptime(string_time, "%I%P").strftime("%H:%M")
   end
 end
