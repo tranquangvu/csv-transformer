@@ -1,113 +1,146 @@
 require 'csv';
 
 class CsvTransformService
-  attr_accessor :file_path, :imported_rows, :exported_rows, :results
+  attr_accessor :file_path, :imported_rows, :date
+
+  ORIGIN_CSV_HEADERS = [
+    :billing_first_name,
+    :billing_last_name,
+    :billing_email,
+    :billing_phone,
+    :shipping_address_1,
+    :shipping_address_2,
+    :shipping_postcode,
+    :shipping_city,
+    :shipping_state,
+    :customer_note,
+    :line_items,
+    :shipping_items,
+    :order_notes,
+    :download_permissions_granted,
+    :billing_country,
+    :billing_company,
+    :billing_address_1,
+    :billing_address_2,
+    :billing_city,
+    :billing_state,
+    :billing_postcode,
+    :delivery_date,
+    :delivery_time,
+    :shipping_first_name,
+    :shipping_last_name,
+    :shipping_company,
+    :shipping_country,
+    :order_comments,
+    :order_date
+  ]
+
+  RESULT_CSV_HEADERS = [
+    'ID',
+    'Latitude',
+    'Longitude',
+    'Address',
+    'From',
+    'To',
+    'Duration',
+    'Notes',
+    'Notes 2',
+    'Load',
+    'Types',
+    'Phone'
+  ]
+
+  CSV_RESULT_METHODS = ['csv_order_results', 'csv_same_date_order_results']
 
   def initialize(file_path, date)
+    @date = Date.parse(date) rescue nil
     @file_path = file_path
-    @date = date
+    @imported_rows = []
+
+    CSV.foreach(file_path, headers: ORIGIN_CSV_HEADERS, encoding: 'ISO-8859-1') do |row, index|
+      next if index == 0
+      @imported_rows << row
+    end
+
+    @imported_rows.map! do |row|
+      row[:delivery_date] = Date.parse(row[:delivery_date]) rescue nil
+      row[:order_date] = Date.parse(row[:order_date]) rescue nil
+      row
+    end
   end
 
   def result
-    # read data rows
-    @imported_rows = []
-    CSV.foreach(file_path, headers: origin_csv_headers, encoding: 'ISO-8859-1').with_index do |data_row, index|
-      next if index == 0
-      @imported_rows << data_row
+    @compressed_filestream = Zip::ZipOutputStream.write_buffer do |zos|
+      CSV_RESULT_METHODS.each do |method_name|
+        file_name, content = self.send(method_name)
+        zos.put_next_entry file_name
+        zos.print content
+      end
     end
+    @compressed_filestream.rewind
+    @compressed_filestream
+  end
 
-    # filter data by date
-    @exported_rows = @imported_rows.select do |data_row|
-      Date.parse(data_row[:delivery_date]) == Date.parse(@date) rescue false
+  def csv_order_results
+    [file_name_with_time_prefix(@date, 'orders.csv'), csv_orders_generater(order_results)]
+  end
+
+  def csv_same_date_order_results
+    [file_name_with_time_prefix(@date, 'same_date_orders.csv'), csv_orders_generater(same_date_order_results)]
+  end
+
+  def order_results
+    @order_results ||= imported_rows.select do |data_row|
+      data_row[:delivery_date] && @date && data_row[:delivery_date] == @date
     end
+  end
 
-    # export csv
+  def same_date_order_results
+    @same_date_order_results ||= order_results.select do |data_row|
+      data_row[:delivery_date] && data_row[:order_date] && data_row[:delivery_date] == data_row[:order_date]
+    end
+  end
+
+  private
+
+  # csv orders builder helpers
+  def csv_orders_generater(data_list)
     CSV.generate(headers: true, encoding: 'ISO-8859-1') do |csv|
-      csv << exported_csv_headers
-
-      @exported_rows.each_with_index do |row, index|
-        csv << [build_exported_csv_id(row, index), nil, nil,
-          build_exported_csv_address(row), build_exported_csv_from(row), build_exported_csv_to(row),
-            10, build_exported_csv_notes(row), nil, 1, nil, row[:billing_phone]]
+      csv << RESULT_CSV_HEADERS
+      data_list.each_with_index do |row, index|
+        csv << [build_csv_id(row, index + 1), nil, nil, build_csv_address(row), build_csv_from(row),
+          build_csv_to(row), 10, build_csv_notes(row), nil, 1, nil, row[:billing_phone]]
       end
     end
   end
 
-
-  private
-
-  def origin_csv_headers
-    [
-      :billing_first_name,
-      :billing_last_name,
-      :billing_email,
-      :billing_phone,
-      :shipping_address_1,
-      :shipping_address_2,
-      :shipping_postcode,
-      :shipping_city,
-      :shipping_state,
-      :customer_note,
-      :line_items,
-      :shipping_items,
-      :order_notes,
-      :download_permissions_granted,
-      :billing_country,
-      :billing_company,
-      :billing_address_1,
-      :billing_address_2,
-      :billing_city,
-      :billing_state,
-      :billing_postcode,
-      :delivery_date,
-      :delivery_time,
-      :shipping_first_name,
-      :shipping_last_name,
-      :shipping_company,
-      :shipping_country,
-      :order_comments
-    ]
+  def build_csv_id(row, index)
+    "#{index}_#{row[:billing_first_name]}_#{row[:billing_last_name]}"
   end
 
-  def exported_csv_headers
-    [
-      'ID',
-      'Latitude',
-      'Longitude',
-      'Address',
-      'From',
-      'To',
-      'Duration',
-      'Notes',
-      'Notes 2',
-      'Load',
-      'Types',
-      'Phone'
-    ]
+  def build_csv_address(row)
+    # return address with country is fixed to USA
+    "#{row[:shipping_address_1]}, #{row[:shipping_city]}, #{row[:shipping_state]} #{row[:shipping_postcode]}, USA"
   end
 
-  def build_exported_csv_id(row, index)
-    "#{index + 1}_#{row[:billing_first_name]}_#{row[:billing_last_name]}"
-  end
-
-  def build_exported_csv_address(row)
-    "#{row[:shipping_address_1]}, #{row[:shipping_city]}, #{row[:shipping_state]} #{row[:shipping_postcode]}, USA" # country is fixed to USA
-  end
-
-  def build_exported_csv_from(row)
+  def build_csv_from(row)
     convert_12_to_24_hr(row[:delivery_time].split('-').first.delete(' '))
   end
 
-  def build_exported_csv_to(row)
+  def build_csv_to(row)
     convert_12_to_24_hr(row[:delivery_time].split('-').last.delete(' '))
   end
 
-  def build_exported_csv_notes(row)
+  def build_csv_notes(row)
     row[:line_items].split('|')[1..-1].join("\n")
   end
 
-  # helper methods
+  # common helpers
   def convert_12_to_24_hr(string_time)
     Time.strptime(string_time, "%I%P").strftime("%H:%M")
+  end
+
+  def file_name_with_time_prefix(date, file_name)
+    "#{date.strftime('%Y%m%d')}_#{file_name}"
   end
 end

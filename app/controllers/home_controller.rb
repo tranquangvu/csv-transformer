@@ -8,7 +8,7 @@ class HomeController < ApplicationController
     if (transformer_params[:file] && transformer_params[:file].path.split('.').last == 'csv')
       @transformer = CsvTransformService.new(transformer_params[:file].path, transformer_params[:date])
       @result = @transformer.result
-      send_data @result, filename: 'result.csv'
+      send_data @result.read, filename: 'result.zip'
     else
       redirect_to root_path, alert: 'Error! Please try again.'
     end
