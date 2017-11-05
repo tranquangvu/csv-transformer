@@ -132,7 +132,13 @@ class CsvTransformService
   end
 
   def build_csv_notes(row)
-    row[:line_items].split('|')[1..-1].join("\n")
+    props       = row[:line_items].split('|')
+    meta_index  = props.each_index.find { |i| props[i].include?('meta:') }
+    meta_value  = props.delete_at(meta_index).split(':').last.strip
+    meta_data   = convert_meta_data(meta_value)
+
+    props << meta_data.select { |md| md.split('=').last.downcase.exclude?('no') }
+    props.join("\n")
   end
 
   # common helpers
@@ -142,5 +148,19 @@ class CsvTransformService
 
   def file_name_with_time_prefix(date, file_name)
     "#{date.strftime('%Y%m%d')}_#{file_name}"
+  end
+
+  def convert_meta_data(meta_value)
+    return [] unless meta_value
+
+    result = []
+    meta_value.split(',').each_with_index do |v, i|
+      if v.include?('=')
+        result << v
+      else
+        result << [result.pop, v].join(',')
+      end
+    end
+    result.map(&:strip)
   end
 end
