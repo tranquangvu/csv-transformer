@@ -35,7 +35,7 @@ class CsvTransformService
     :order_date
   ]
 
-  RESULT_CSV_HEADERS = [
+  ORDER_RESULT_CSV_HEADERS = [
     'ID',
     'Latitude',
     'Longitude',
@@ -50,7 +50,16 @@ class CsvTransformService
     'Phone'
   ]
 
-  CSV_RESULT_METHODS = ['csv_order_results', 'csv_same_date_order_results']
+  LOADING_RESULT_CSV_HEADERS = [
+    'Item',
+    'Quantity'
+  ]
+
+  CSV_RESULT_METHODS = [
+    :csv_order_results,
+    :csv_same_date_order_results,
+    :csv_loading_results
+  ]
 
   def initialize(file_path, date)
     @date = Date.parse(date) rescue nil
@@ -89,6 +98,16 @@ class CsvTransformService
     [file_name_with_time_prefix(@date, 'same_date_orders.csv'), csv_orders_generater(same_date_order_results)]
   end
 
+  def csv_loading_results
+    csv_content = CSV.generate(headers: true, encoding: 'ISO-8859-1') do |csv|
+      csv << LOADING_RESULT_CSV_HEADERS
+      loading_results.each do |key, value|
+        csv << [key, value]
+      end
+    end
+    [file_name_with_time_prefix(@date, 'loading_results.csv'), csv_content]
+  end
+
   def order_results
     @order_results ||= imported_rows.select do |data_row|
       data_row[:delivery_date] && @date && data_row[:delivery_date] == @date
@@ -101,12 +120,41 @@ class CsvTransformService
     end
   end
 
+  def loading_results
+    return @loading_list_results if @loading_list_results
+
+    @loading_list_results = {}
+
+    # main item count
+    order_results.each do |data_row|
+      name = name_from_line_item(data_row[:line_items])
+      quantity = quantity_from_line_item(data_row[:line_items])
+      tree_size, size_unit = tree_size_unit_from_line_item(data_row[:line_items])
+
+      main_item_key = "#{name} #{tree_size} #{size_unit}"
+      @loading_list_results[main_item_key] = @loading_list_results[main_item_key] ?
+        @loading_list_results[main_item_key] + quantity : quantity
+    end
+
+    # stand for item count
+    order_results.each do |data_row|
+      sf_item_key, value = tree_stand_for_key_value(data_row[:line_items])
+      added_count = value.downcase.exclude?('no') ? 1 : 0
+
+      if added_count > 0
+        @loading_list_results[sf_item_key] = @loading_list_results[sf_item_key] ?
+          @loading_list_results[sf_item_key] + added_count : added_count
+      end
+    end
+    @loading_list_results
+  end
+
   private
 
   # csv orders builder helpers
   def csv_orders_generater(data_list)
     CSV.generate(headers: true, encoding: 'ISO-8859-1') do |csv|
-      csv << RESULT_CSV_HEADERS
+      csv << ORDER_RESULT_CSV_HEADERS
       data_list.each_with_index do |row, index|
         csv << [build_csv_id(row, index + 1), nil, nil, build_csv_address(row), build_csv_from(row),
           build_csv_to(row), 10, build_csv_notes(row), nil, 1, nil, row[:billing_phone]]
@@ -162,5 +210,27 @@ class CsvTransformService
       end
     end
     result.map(&:strip)
+  end
+
+  def quantity_from_line_item(line_item)
+    return unless line_item
+    line_item.match(/quantity:(\d+)?/)[1].to_i
+  end
+
+  def name_from_line_item(line_item)
+    return unless line_item
+    line_item.match(/name:([^\|]+)?/)[1]
+  end
+
+  def tree_size_unit_from_line_item(line_item)
+    return unless line_item
+
+    size_string, size_unit = line_item.match(/choose-your-tree-size([^,]*)?=([^,]*)?/)[2].split
+    [size_string.to_i, size_unit]
+  end
+
+  def tree_stand_for_key_value(line_item)
+    return unless line_item
+    line_item.scan(/Christmas Tree Stand for Your Tree[^,]+/).first.split('=')
   end
 end
