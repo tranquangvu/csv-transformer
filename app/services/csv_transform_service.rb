@@ -206,16 +206,17 @@ class CsvTransformService
 
   def convert_meta_data(meta_value)
     return [] unless meta_value
+    meta_value.split(';').map(&:strip)
 
-    result = []
-    meta_value.split(',').each_with_index do |v, i|
-      if v.include?('=')
-        result << v
-      else
-        result << [result.pop, v].join(',')
-      end
-    end
-    result.map(&:strip)
+    # result = []
+    # meta_value.split(',').each_with_index do |v, i|
+    #   if v.include?('=')
+    #     result << v
+    #   else
+    #     result << [result.pop, v].join(',')
+    #   end
+    # end
+    # result.map(&:strip)
   end
 
   def quantity_from_line_item(line_item)
@@ -231,14 +232,14 @@ class CsvTransformService
   def tree_size_unit_from_line_item(line_item)
     return unless line_item
 
-    size_string, size_unit = line_item.match(/choose-your-tree-size([^,]*)?=([^,]*)?/)[2].split
+    size_string, size_unit = line_item.match(/choose-your-tree-size([^;]*)?=([^;]*)?/)[2].split
     [size_string.to_i, size_unit]
   end
 
   def tree_stand_for_key_value(line_item)
     return unless line_item
 
-    key, value = get_key_value(line_item.scan(/Christmas Tree Stand for Your Tree[^,]+/).first, '=')
+    key, value = get_key_value(line_item.scan(/Christmas Tree Stand for Your Tree[^;]+/).first, '=')
     value_number = value.downcase.exclude?('no') ? 1 : 0
     [key, value_number]
   end
@@ -246,7 +247,7 @@ class CsvTransformService
   def tree_food_key_value(line_item)
     return unless line_item
 
-    key, value = get_key_value(line_item.scan(/All-Natural Christmas Tree Food[^,]+/).first, '=')
+    key, value = get_key_value(line_item.scan(/All-Natural Christmas Tree Food[^;]+/).first, '=')
     value_number = case value.downcase.split.first
       when 'one'
          1
