@@ -61,6 +61,11 @@ class CsvTransformService
     :csv_loading_results
   ]
 
+  LOADING_RESULT_OTHER_ITEM_COUNTER_METHODS = [
+    :tree_stand_for_key_value,
+    :tree_food_key_value
+  ]
+
   def initialize(file_path, date)
     @date = Date.parse(date) rescue nil
     @file_path = file_path
@@ -136,16 +141,17 @@ class CsvTransformService
         @loading_list_results[main_item_key] + quantity : quantity
     end
 
-    # stand for item count
+    # others item count
     order_results.each do |data_row|
-      sf_item_key, value = tree_stand_for_key_value(data_row[:line_items])
-      added_count = value.downcase.exclude?('no') ? 1 : 0
-
-      if added_count > 0
-        @loading_list_results[sf_item_key] = @loading_list_results[sf_item_key] ?
-          @loading_list_results[sf_item_key] + added_count : added_count
+      LOADING_RESULT_OTHER_ITEM_COUNTER_METHODS.each do |method|
+        item_key, item_value = self.send(method, data_row[:line_items])
+        if item_value > 0
+          @loading_list_results[item_key] = @loading_list_results[item_key] ?
+            @loading_list_results[item_key] + item_value : item_value
+        end
       end
     end
+
     @loading_list_results
   end
 
@@ -231,6 +237,31 @@ class CsvTransformService
 
   def tree_stand_for_key_value(line_item)
     return unless line_item
-    line_item.scan(/Christmas Tree Stand for Your Tree[^,]+/).first.split('=')
+
+    key, value = get_key_value(line_item.scan(/Christmas Tree Stand for Your Tree[^,]+/).first, '=')
+    value_number = value.downcase.exclude?('no') ? 1 : 0
+    [key, value_number]
+  end
+
+  def tree_food_key_value(line_item)
+    return unless line_item
+
+    key, value = get_key_value(line_item.scan(/All-Natural Christmas Tree Food[^,]+/).first, '=')
+    value_number = case value.downcase.split.first
+      when 'one'
+         1
+      when 'two'
+        2
+      when 'four'
+        4
+      else
+        0
+    end
+    [key, value_number]
+  end
+
+  def get_key_value(str, seperater)
+    spliters = str.split(seperater)
+    [spliters.pop, spliters.join(seperater)].reverse
   end
 end
