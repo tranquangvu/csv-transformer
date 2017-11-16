@@ -1,4 +1,4 @@
-require 'csv';
+require 'csv'
 
 class CsvTransformService
   attr_accessor :file_path, :imported_rows, :date
@@ -186,12 +186,8 @@ class CsvTransformService
   end
 
   def build_csv_notes(row)
-    props       = row[:line_items].split('|')
-    meta_index  = props.each_index.find { |i| props[i].include?('meta:') }
-    meta_value  = props.delete_at(meta_index).split(':').last.strip
-    meta_data   = convert_meta_data(meta_value)
-
-    props << meta_data.select { |md| md.split('=').last.downcase.exclude?('no') }
+    props, meta_data = meta_data_from_line_items(row[:line_items], result_include_props: true)
+    props << meta_data.select { |md| md.downcase.exclude?('=no') }
     props.join("\n")
   end
 
@@ -204,19 +200,39 @@ class CsvTransformService
     "#{date.strftime('%Y%m%d')}_#{file_name}"
   end
 
-  def convert_meta_data(meta_value)
-    return [] unless meta_value
-    meta_value.split(';').map(&:strip)
+  def meta_data_converter(meta)
+    return [] unless meta
 
-    # result = []
-    # meta_value.split(',').each_with_index do |v, i|
-    #   if v.include?('=')
-    #     result << v
-    #   else
-    #     result << [result.pop, v].join(',')
-    #   end
-    # end
-    # result.map(&:strip)
+    result = []
+    splited_meta = meta.split(',')
+    splited_meta.each_with_index do |v, i|
+      if v.include?('=')
+        result << (!result.last || result.last.include?('=') ? v : [result.pop, v].join(','))
+      else
+        last_result = result.last
+
+        if !last_result ||
+          last_result.downcase.include?('=no=') || last_result.downcase.include?('=yes=') ||
+            last_result.downcase.include?('=no,') || last_result.downcase.include?('=yes')
+          result << v
+        else
+          result << [result.pop, v].join(',')
+        end
+      end
+    end
+    result.map(&:strip)
+  end
+
+  def meta_data_from_line_items(line_item, result_include_props: false)
+    props       = line_item.split('|')
+    meta_index  = props.each_index.find { |i| props[i].include?('meta:') }
+    meta_value  = props.delete_at(meta_index).split(':').last.strip
+
+    if result_include_props
+      return [props, meta_data_converter(meta_value)]
+    end
+
+    meta_data_converter(meta_value)
   end
 
   def quantity_from_line_item(line_item)
@@ -232,25 +248,33 @@ class CsvTransformService
   def tree_size_unit_from_line_item(line_item)
     return unless line_item
 
-    size_string, size_unit = line_item.match(/choose-your-tree-size([^;]*)?=([^;]*)?/)[2].split
+    size_string, size_unit = line_item.match(/choose-your-tree-size([^,]*)?=([^,]*)?/)[2].split
     [size_string.to_i, size_unit]
   end
 
   def tree_stand_for_key_value(line_item)
     return unless line_item
 
-    key, value = get_key_value(line_item.scan(/Christmas Tree Stand for Your Tree[^;]+/).first, '=')
-    value_number = value.downcase.exclude?('no') ? 1 : 0
+    meta_data      = meta_data_from_line_items(line_item)
+    meta_key_value = meta_data.find { |d| d.include?('Christmas Tree Stand for Your Tree') }
+    spliters       = meta_key_value.split('=')
+    key, value     = [spliters.shift, spliters.join('=')]
+    value_number   = value.downcase.exclude?('no') ? 1 : 0
+
     [key, value_number]
   end
 
   def tree_food_key_value(line_item)
     return unless line_item
 
-    key, value = get_key_value(line_item.scan(/All-Natural Christmas Tree Food[^;]+/).first, '=')
+    meta_data      = meta_data_from_line_items(line_item)
+    meta_key_value = meta_data.find { |d| d.include?('All-Natural Christmas Tree Food') }
+    spliters       = meta_key_value.split('=')
+    key, value     = [spliters.pop, spliters.join('=')].reverse
+
     value_number = case value.downcase.split.first
       when 'one'
-         1
+        1
       when 'two'
         2
       when 'four'
@@ -259,10 +283,5 @@ class CsvTransformService
         0
     end
     [key, value_number]
-  end
-
-  def get_key_value(str, seperater)
-    spliters = str.split(seperater)
-    [spliters.pop, spliters.join(seperater)].reverse
   end
 end
