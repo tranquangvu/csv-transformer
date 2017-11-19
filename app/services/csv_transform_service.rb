@@ -188,7 +188,7 @@ class CsvTransformService
   def build_csv_notes(row)
     props, meta_data = meta_data_from_line_items(row[:line_items], result_include_props: true)
     props << meta_data.select { |md| md.downcase.exclude?('=no') }
-    props.join("\n")
+    props.join("|\n")
   end
 
   # common helpers
