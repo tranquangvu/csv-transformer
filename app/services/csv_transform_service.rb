@@ -61,7 +61,7 @@ class CsvTransformService
     :csv_loading_results
   ]
 
-  LOADING_RESULT_OTHER_ITEM_COUNTER_METHODS = [
+  OTHER_ITEM_COUNTER_METHODS = [
     :tree_stand_for_key_value,
     :tree_food_key_value
   ]
@@ -143,7 +143,7 @@ class CsvTransformService
 
     # others item count
     order_results.each do |data_row|
-      LOADING_RESULT_OTHER_ITEM_COUNTER_METHODS.each do |method|
+      OTHER_ITEM_COUNTER_METHODS.each do |method|
         item_key, item_value = self.send(method, data_row[:line_items])
         if item_value > 0
           @loading_list_results[item_key] = @loading_list_results[item_key] ?
@@ -186,9 +186,22 @@ class CsvTransformService
   end
 
   def build_csv_notes(row)
-    props, meta_data = meta_data_from_line_items(row[:line_items], result_include_props: true)
-    props << meta_data.select { |md| md.downcase.exclude?('=no') }
-    props.join("|\n")
+    notes         = []
+    customer_note = row[:customer_note]
+
+    # main item count
+    tree_name = name_from_line_item(row[:line_items])
+    tree_quantity = quantity_from_line_item(row[:line_items])
+    tree_size, size_unit = tree_size_unit_from_line_item(row[:line_items])
+    notes << "#{tree_name} #{tree_size} #{size_unit} (#{tree_quantity})"
+
+    # Other items
+    OTHER_ITEM_COUNTER_METHODS.each do |method|
+      item_key, item_value = self.send(method, row[:line_items])
+      notes << "#{item_key} (#{item_value})".gsub(',', '-') if item_value > 0
+    end
+
+    [notes.join(', '), customer_note].compact.join(' | ')
   end
 
   # common helpers
