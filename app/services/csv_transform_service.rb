@@ -186,8 +186,9 @@ class CsvTransformService
   end
 
   def build_csv_notes(row)
-    notes         = []
-    customer_note = row[:customer_note]
+    notes              = []
+    customer_note      = row[:customer_note]
+    shipping_address_2 = row[:shipping_address_2] ? "Apt: #{row[:shipping_address_2]}" : nil
 
     # main item count
     tree_name = name_from_line_item(row[:line_items])
@@ -201,7 +202,7 @@ class CsvTransformService
       notes << "#{item_key} (#{item_value})".gsub(',', '-') if item_value > 0
     end
 
-    [notes.join(', '), customer_note].compact.join(' | ')
+    [shipping_address_2, notes.join(', '), customer_note].compact.join(' | ')
   end
 
   # common helpers
