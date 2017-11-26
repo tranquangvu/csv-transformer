@@ -62,8 +62,10 @@ class CsvTransformService
   ]
 
   OTHER_ITEM_COUNTER_METHODS = [
-    :tree_stand_for_key_value,
-    :tree_food_key_value
+    :tree_service_setup_key_value,
+    :tree_stand_key_value,
+    :tree_food_key_value,
+    :tree_wreath_key_value
   ]
 
   def initialize(file_path, date)
@@ -145,7 +147,7 @@ class CsvTransformService
     order_results.each do |data_row|
       OTHER_ITEM_COUNTER_METHODS.each do |method|
         item_key, item_value = self.send(method, data_row[:line_items])
-        if item_value > 0
+        if item_key && item_value && item_value > 0
           @loading_list_results[item_key] = @loading_list_results[item_key] ?
             @loading_list_results[item_key] + item_value : item_value
         end
@@ -199,7 +201,7 @@ class CsvTransformService
     # Other items
     OTHER_ITEM_COUNTER_METHODS.each do |method|
       item_key, item_value = self.send(method, row[:line_items])
-      notes << "#{item_key} (#{item_value})".gsub(',', '-') if item_value > 0
+      notes << "#{item_key} (#{item_value})".gsub(',', '-') if item_key && item_value && item_value > 0
     end
 
     [shipping_address_2, notes.join(', '), customer_note].compact.join(' | ')
@@ -266,16 +268,32 @@ class CsvTransformService
     [size_string.to_i, size_unit]
   end
 
-  def tree_stand_for_key_value(line_item)
+  def tree_service_setup_key_value(line_item)
+    return unless line_item
+
+    meta_data      = meta_data_from_line_items(line_item)
+    meta_key_value = meta_data.find { |d| d.include?('Christmas Tree Set-Up Service') }
+
+    return unless meta_key_value
+
+    value_number = meta_key_value.downcase.exclude?('=no') ? 1 : 0
+    spliter      = value_number == 1? '=yes' : '=no'
+
+    [meta_key_value.downcase.split(spliter).first.titleize, value_number]
+  end
+
+  def tree_stand_key_value(line_item)
     return unless line_item
 
     meta_data      = meta_data_from_line_items(line_item)
     meta_key_value = meta_data.find { |d| d.include?('Christmas Tree Stand for Your Tree') }
-    spliters       = meta_key_value.split('=')
-    key, value     = [spliters.shift, spliters.join('=')]
-    value_number   = value.downcase.exclude?('no') ? 1 : 0
 
-    [key, value_number]
+    return unless meta_key_value
+
+    value_number = meta_key_value.downcase.exclude?('=no') ? 1 : 0
+    spliter      = value_number == 1? '=yes' : '=no'
+
+    [meta_key_value.downcase.split(spliter).first.titleize, value_number]
   end
 
   def tree_food_key_value(line_item)
@@ -283,19 +301,44 @@ class CsvTransformService
 
     meta_data      = meta_data_from_line_items(line_item)
     meta_key_value = meta_data.find { |d| d.include?('All-Natural Christmas Tree Food') }
+
+    return unless meta_key_value
+
     spliters       = meta_key_value.split('=')
     key, value     = [spliters.pop, spliters.join('=')].reverse
+    value_number   = human_counter_to_number(value.downcase.split.first)
 
-    value_number = case value.downcase.split.first
-      when 'one'
-        1
-      when 'two'
-        2
-      when 'four'
-        4
-      else
-        0
-    end
-    [key, value_number]
+    [key.titleize, value_number]
+  end
+
+  def tree_wreath_key_value(line_item)
+    return unless line_item
+
+    meta_data      = meta_data_from_line_items(line_item)
+    meta_key_value = meta_data.find { |d| d.include?('Christmas Wreath') }
+
+    return unless meta_key_value
+
+    spliters       = meta_key_value.split('=')
+    key, value     = [spliters.pop, spliters.join('=')].reverse
+    value_number   = human_counter_to_number(value.downcase.split.first)
+
+    [key.titleize, value_number]
+  end
+
+  def human_counter_to_number(s)
+    converter = {
+      'one'   => 1,
+      'two'   => 2,
+      'three' => 3,
+      'four'  => 4,
+      'five'  => 5,
+      'six'   => 6,
+      'seven' => 7,
+      'eight' => 8,
+      'nine'  => 9,
+      'ten'   => 10
+    }
+    converter.fetch(s.to_s, 0)
   end
 end
