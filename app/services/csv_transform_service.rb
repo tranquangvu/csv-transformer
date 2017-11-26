@@ -65,7 +65,8 @@ class CsvTransformService
     :tree_service_setup_key_value,
     :tree_stand_key_value,
     :tree_food_key_value,
-    :tree_wreath_key_value
+    :tree_wreath_key_value,
+    :tree_light_key_value,
   ]
 
   def initialize(file_path, date)
@@ -154,7 +155,7 @@ class CsvTransformService
       end
     end
 
-    @loading_list_results
+    @loading_list_results.sort.to_h
   end
 
   private
@@ -322,6 +323,21 @@ class CsvTransformService
     spliters       = meta_key_value.split('=')
     key, value     = [spliters.pop, spliters.join('=')].reverse
     value_number   = human_counter_to_number(value.downcase.split.first)
+
+    [key.titleize, value_number]
+  end
+
+  def tree_light_key_value(line_item)
+    return unless line_item
+
+    meta_data      = meta_data_from_line_items(line_item)
+    meta_key_value = meta_data.find { |d| d.include?('Christmas Tree Lights') }
+
+    return unless meta_key_value
+
+    spliters       = meta_key_value.split('=')
+    key, value     = [spliters.pop, spliters.join('=')].reverse
+    value_number   = value.to_i
 
     [key.titleize, value_number]
   end
