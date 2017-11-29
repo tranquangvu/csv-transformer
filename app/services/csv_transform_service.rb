@@ -1,7 +1,7 @@
 require 'csv'
 
 class CsvTransformService
-  attr_accessor :file_path, :imported_rows, :date
+  attr_accessor :file_path, :imported_rows, :date, :removal_date
 
   ORIGIN_CSV_HEADERS = [
     :billing_first_name,
@@ -58,7 +58,8 @@ class CsvTransformService
   CSV_RESULT_METHODS = [
     :csv_order_results,
     :csv_same_date_order_results,
-    :csv_loading_results
+    :csv_loading_results,
+    :csv_removal_results
   ]
 
   OTHER_ITEM_COUNTER_METHODS = [
@@ -69,8 +70,9 @@ class CsvTransformService
     :tree_light_key_value,
   ]
 
-  def initialize(file_path, date)
+  def initialize(file_path, date, removal_date)
     @date = Date.parse(date) rescue nil
+    @removal_date = Date.parse(removal_date) rescue nil
     @file_path = file_path
     @imported_rows = []
 
@@ -116,6 +118,10 @@ class CsvTransformService
     [file_name_with_time_prefix(@date, 'loading_results.csv'), csv_content]
   end
 
+  def csv_removal_results
+    [file_name_with_time_prefix(@removal_date, 'removals.csv'), csv_removal_generater(removal_results)]
+  end
+
   def order_results
     @order_results ||= imported_rows.select do |data_row|
       data_row[:delivery_date] && @date && data_row[:delivery_date] == @date
@@ -158,6 +164,13 @@ class CsvTransformService
     @loading_list_results.sort.to_h
   end
 
+  def removal_results
+    @removal_results ||= imported_rows.select do |data_row|
+      data_row[:line_items] && @removal_date &&
+        data_row[:line_items].include?("REMOVAL DATE=#{@removal_date.strftime('%m/%d/%Y')}")
+    end
+  end
+
   private
 
   # csv orders builder helpers
@@ -166,7 +179,17 @@ class CsvTransformService
       csv << ORDER_RESULT_CSV_HEADERS
       data_list.each_with_index do |row, index|
         csv << [build_csv_id(row, index + 1), nil, nil, build_csv_address(row), build_csv_from(row),
-          build_csv_to(row), 10, build_csv_notes(row), nil, 1, nil, row[:billing_phone]]
+          build_csv_to(row), 15, build_csv_notes(row), nil, 1, nil, row[:billing_phone]]
+      end
+    end
+  end
+
+  def csv_removal_generater(data_list)
+    CSV.generate(headers: true, encoding: 'ISO-8859-1') do |csv|
+      csv << ORDER_RESULT_CSV_HEADERS
+      data_list.each_with_index do |row, index|
+        csv << [build_csv_id(row, index + 1), nil, nil, build_csv_address(row), build_csv_removal_from(row),
+          build_csv_removal_to(row), 15, build_csv_removal_notes(row), nil, 1, nil, row[:billing_phone]]
       end
     end
   end
@@ -184,8 +207,16 @@ class CsvTransformService
     convert_12_to_24_hr(row[:delivery_time].split('-').first.delete(' '))
   end
 
+  def build_csv_removal_from(row)
+    convert_12_to_24_hr(row[:line_items].match(/REMOVAL TIME=([^,]*)?/)[1].split('-').first.delete(' '))
+  end
+
   def build_csv_to(row)
     convert_12_to_24_hr(row[:delivery_time].split('-').last.delete(' '))
+  end
+
+  def build_csv_removal_to(row)
+    convert_12_to_24_hr(row[:line_items].match(/REMOVAL TIME=([^,]*)?/)[1].split('-').last.delete(' '))
   end
 
   def build_csv_notes(row)
@@ -204,6 +235,17 @@ class CsvTransformService
       item_key, item_value = self.send(method, row[:line_items])
       notes << "#{item_key} (#{item_value})".gsub(',', '-') if item_key && item_value && item_value > 0
     end
+
+    [shipping_address_2, notes.join(', '), customer_note].compact.join(' | ')
+  end
+
+  def build_csv_removal_notes(row)
+    notes              = []
+    customer_note      = row[:customer_note]
+    shipping_address_2 = row[:shipping_address_2] ? "Apt: #{row[:shipping_address_2]}" : nil
+
+    item_key, item_value = tree_removal_key_value(row[:line_items])
+    notes << "#{item_key} (#{item_value})".gsub(',', '-') if item_key && item_value && item_value > 0
 
     [shipping_address_2, notes.join(', '), customer_note].compact.join(' | ')
   end
@@ -340,6 +382,20 @@ class CsvTransformService
     value_number   = value.to_i
 
     [key.titleize, value_number]
+  end
+
+  def tree_removal_key_value(line_item)
+    return unless line_item
+
+    meta_data      = meta_data_from_line_items(line_item)
+    meta_key_value = meta_data.find { |d| d.include?('Christmas Tree Removal') }
+
+    return unless meta_key_value
+
+    value_number = meta_key_value.downcase.exclude?('=no') ? 1 : 0
+    spliter      = value_number == 1? '=yes' : '=no'
+
+    [meta_key_value.downcase.split(spliter).first.titleize, value_number]
   end
 
   def human_counter_to_number(s)
